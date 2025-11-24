@@ -1,0 +1,13 @@
+numpy==2.2.6
+torch==2.8.0
+transformers==4.51.3
+datasets==4.0.0
+lm-eval==0.3.0
+accelerate>=1.10.1
+tensorboardX
+bitsandbytes
+sentencepiece
+tqdm
+GPUtil>=1.4.0
+mpi4py
+mpich
