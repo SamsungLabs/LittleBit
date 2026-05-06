@@ -28,14 +28,14 @@ Banseok Lee*, Dongkyu Kim*, Youngcheon You, Youngmin Kim<br>
 
 **LittleBit** compresses large language models into the sub-1-bit regime by factorizing each dense weight matrix into low-rank latent factors, binarizing those factors, and restoring magnitude information through lightweight learned scales. This enables extreme compression, including the 0.1 bits-per-weight setting, while preserving the original model architecture at inference time.
 
-**LittleBit-2** improves this recipe by addressing latent geometry misalignment in the initialization stage. It applies Internal Latent Rotation with Joint Iterative Quantization (Joint-ITQ), aligning the SVD-derived latent factors with the binary hypercube before QAT. The implementation in this repository now applies LittleBit-2 initialization by default for `LittleBitLinear`, with no additional inference overhead.
+**LittleBit-2** improves this recipe by addressing latent geometry misalignment in the initialization stage. It applies Internal Latent Rotation with Joint Iterative Quantization (Joint-ITQ), aligning the SVD-derived latent factors with the binary hypercube before QAT. LittleBit-2 initialization is available as an opt-in (`--use_itq`) and produces no additional inference overhead.
 
 ---
 
 ## Highlights
 
 - **Sub-1-bit compression:** Designed for 1.0 to 0.1 bits per weight.
-- **LittleBit-2 by default:** `LittleBitLinear` uses Joint-ITQ initialization automatically.
+- **LittleBit-2 opt-in:** Enable Joint-ITQ initialization with `--use_itq` for improved latent geometry alignment.
 - **No inference-time change:** LittleBit-2 modifies initialization only; the deployed factorized layer remains the same.
 - **QAT-friendly:** Supports Quantization-Aware Training with SmoothSign and optional residual factorization.
 
@@ -83,7 +83,7 @@ pip install "transformers==4.51.*"
 
 ### Training
 
-Train a model with Quantization-Aware Training. LittleBit-2 is the default initialization path when using `--quant_mod LittleBitLinear`.
+Train a model with Quantization-Aware Training. By default, `LittleBitLinear` uses the original SVD-only initialization. To enable LittleBit-2 (Joint-ITQ), pass `--use_itq True`.
 
 **Single GPU**
 
@@ -104,6 +104,9 @@ CUDA_VISIBLE_DEVICES=0 python -m main \
     --kv_factor 1.0 \
     --min_split_dim 8 \
     --l2l_loss_scale 10.0
+
+# Opt-in to LittleBit-2 initialization
+# --use_itq True
 ```
 
 **Multi-GPU with DeepSpeed**
