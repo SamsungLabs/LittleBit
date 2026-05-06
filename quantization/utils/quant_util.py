@@ -285,6 +285,8 @@ def load_quantized_model(model_path: str, quant_args, torch_dtype, device: str =
         "num_expert": getattr(quant_args, "num_expert", 4),
         "kv_factor": getattr(quant_args, "kv_factor", 1.0),
         "min_split_dim": getattr(quant_args, "min_split_dim", 8),
+        "use_itq": getattr(quant_args, "use_itq", False),
+        "itq_n_iter": getattr(quant_args, "itq_n_iter", 50),
     }
     for key, value in quant_params.items():
         if not hasattr(config, key):

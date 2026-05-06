@@ -144,7 +144,9 @@ def main(args):
         # Extract explicit quantization args provided via CLI
         # Only collect arguments that are NOT None (i.e., user explicitly set them)
         quant_kwargs = {}
-        quant_keys = ["quant_func", "quant_mod", "residual", "split_dim", "eff_bit", "kv_factor"]
+        quant_keys = [
+            "quant_func", "quant_mod", "residual", "split_dim", "eff_bit", "kv_factor", "use_itq", "itq_n_iter"
+        ]
         for key in quant_keys:
             val = getattr(args, key)
             if val is not None:
@@ -214,6 +216,8 @@ if __name__ == "__main__":
     parser.add_argument("--split_dim", type=int, default=None)
     parser.add_argument("--eff_bit", type=float, default=None)
     parser.add_argument("--kv_factor", type=float, default=None)
+    parser.add_argument("--use_itq", type=str2bool, default=None)
+    parser.add_argument("--itq_n_iter", type=int, default=None)
 
     # Evaluation args
     parser.add_argument("--ppl_task", type=str, default="wikitext2")

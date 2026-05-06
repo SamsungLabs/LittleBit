@@ -41,6 +41,8 @@ class LittleBitConfig:
     residual: bool = False
     kv_factor: float = 1.0
     min_split_dim: int = 8
+    use_itq: bool = False
+    itq_n_iter: int = 50
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -139,6 +141,8 @@ class LittleBitModel(nn.Module, PyTorchModelHubMixin):
         model_config["eff_bit"] = self._littlebit_config.eff_bit
         model_config["split_dim"] = self._littlebit_config.split_dim
         model_config["residual"] = self._littlebit_config.residual
+        model_config["use_itq"] = self._littlebit_config.use_itq
+        model_config["itq_n_iter"] = self._littlebit_config.itq_n_iter
 
         config_path = save_directory / "config.json"
         with open(config_path, "w") as f:
@@ -219,7 +223,10 @@ class LittleBitModel(nn.Module, PyTorchModelHubMixin):
         if model_config_path.exists():
             with open(model_config_path) as f:
                 model_config = json.load(f)
-            for key in ["quant_func", "eff_bit", "split_dim", "residual", "quant_mod", "num_expert", "kv_factor"]:
+            for key in [
+                    "quant_func", "eff_bit", "split_dim", "residual", "quant_mod", "num_expert", "kv_factor", "use_itq",
+                    "itq_n_iter"
+            ]:
                 # Apply fallback if the key exists in model_config and hasn't been explicitly set in config
                 if key in model_config and (not hasattr(config, key)
                                             or getattr(config, key) == getattr(LittleBitConfig(), key)):
@@ -238,6 +245,8 @@ class LittleBitModel(nn.Module, PyTorchModelHubMixin):
             kv_factor=getattr(config, "kv_factor", 1.0),
             min_split_dim=getattr(config, "min_split_dim", 8),
             quant_mod=getattr(config, "quant_mod", "LittleBitLinear"),
+            use_itq=getattr(config, "use_itq", False),
+            itq_n_iter=getattr(config, "itq_n_iter", 50),
             model_id=local_path,
         )
 

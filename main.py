@@ -81,6 +81,9 @@ def get_args():
     parser.add_argument("--kv_factor", type=float, default=1.0)
     parser.add_argument("--min_split_dim", type=int, default=8)
 
+    parser.add_argument("--use_itq", type=str2bool, default=False)
+    parser.add_argument("--itq_n_iter", type=int, default=50)
+
     args = parser.parse_args()
 
     return args
@@ -287,6 +290,8 @@ def save_artifacts(trainer, model, tokenizer, save_dir, args):
                 "kv_factor": getattr(args, "kv_factor", 1.0),
                 "min_split_dim": getattr(args, "min_split_dim", 8),
                 "quant_mod": getattr(args, "quant_mod", "LittleBitLinear"),
+                "use_itq": getattr(args, "use_itq", False),
+                "itq_n_iter": getattr(args, "itq_n_iter", 50),
             }
 
             littlebit_config_path = os.path.join(save_dir, "littlebit_config.json")
