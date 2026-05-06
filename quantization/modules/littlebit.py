@@ -226,10 +226,36 @@ class LittleBitLinear(nn.Module):
         self.register_parameter('weight', None)
         self._binarized = False
 
+    def _compute_itq_rotation(self, X, n_iter=20):
+        """
+        Finds optimal Rotation R that aligns data to the binary hypercube.
+        Objective: min || B - X @ R ||_F^2  s.t. B = sign(X @ R)
+        """
+        with torch.no_grad():
+            _, dim = X.shape
+            device = X.device
+
+            X_f = X.float()
+
+            R = torch.empty((dim, dim), device=device, dtype=torch.float32)
+            torch.nn.init.orthogonal_(R)
+
+            for _ in range(n_iter):
+                Z = X_f @ R
+                B = torch.sign(Z)
+
+                M = B.t() @ X_f
+                U_p, _, Vt_p = torch.linalg.svd(M, full_matrices=False)
+
+                R = Vt_p.t() @ U_p.t()
+
+            return R.to(X.dtype)
+
     def _decompose_matrix(self, X=None):
         """
         Computes a low-rank decomposition of matrix X via SVD.
-        Then applies an extra SVD (on the absolute value) to each of the two factors
+        Then aligns the factors with joint ITQ and applies an extra SVD
+        (on the absolute value) to each of the two factors
         for additional factorization into (vector1, vector2) pairs.
         Returns:
             U, V: The low-rank factors of the original matrix.
@@ -259,6 +285,12 @@ class LittleBitLinear(nn.Module):
             U = (U_t @ sqrt_S).contiguous()
             V = (sqrt_S.t() @ Vh_t).contiguous()
 
+            with torch.no_grad():
+                X_combined = torch.cat([U, V.t()], dim=0)
+                R = self._compute_itq_rotation(X_combined, n_iter=50)
+                U = (U @ R).contiguous()
+                V = (R.t() @ V).contiguous()
+
             v1, v2 = self._rank_one_decompose(torch.abs(V), calc_device=calc_device)
             u1, u2 = self._rank_one_decompose(torch.abs(U), calc_device=calc_device)
 
@@ -272,7 +304,7 @@ class LittleBitLinear(nn.Module):
             u2 = u2.to(device=original_device, dtype=dtype)
 
             # Explicitly delete temporary GPU tensors to prevent OOM
-            del X_calc, U_t, S_t, V_t, Vh_t
+            del X_calc, U_t, S_t, V_t, Vh_t, X_combined, R
 
         else:
             U = torch.empty(self.out_features, self.split_dim)
