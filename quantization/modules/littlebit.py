@@ -16,11 +16,15 @@ class LittleBitLinear(nn.Module):
         residual: bool = False,
         ratio_factor: float = 1.0,
         min_split_dim: int = 8,
+        use_itq: bool = False,
+        itq_n_iter: int = 50,
         **kwargs,
     ):
         self.do_train = do_train
         self.quant_func = quant_func
         self.residual = residual
+        self.use_itq = use_itq
+        self.itq_n_iter = itq_n_iter
 
         # Flag to track if weights are binarized to int8 for inference
         self._binarized = False
@@ -286,10 +290,12 @@ class LittleBitLinear(nn.Module):
             V = (sqrt_S.t() @ Vh_t).contiguous()
 
             with torch.no_grad():
-                X_combined = torch.cat([U, V.t()], dim=0)
-                R = self._compute_itq_rotation(X_combined, n_iter=50)
-                U = (U @ R).contiguous()
-                V = (R.t() @ V).contiguous()
+                if self.use_itq:
+                    X_combined = torch.cat([U, V.t()], dim=0)
+                    R = self._compute_itq_rotation(X_combined, n_iter=self.itq_n_iter)
+                    U = (U @ R).contiguous()
+                    V = (R.t() @ V).contiguous()
+                    del X_combined, R
 
             v1, v2 = self._rank_one_decompose(torch.abs(V), calc_device=calc_device)
             u1, u2 = self._rank_one_decompose(torch.abs(U), calc_device=calc_device)
@@ -304,7 +310,7 @@ class LittleBitLinear(nn.Module):
             u2 = u2.to(device=original_device, dtype=dtype)
 
             # Explicitly delete temporary GPU tensors to prevent OOM
-            del X_calc, U_t, S_t, V_t, Vh_t, X_combined, R
+            del X_calc, U_t, S_t, V_t, Vh_t
 
         else:
             U = torch.empty(self.out_features, self.split_dim)

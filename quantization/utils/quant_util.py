@@ -131,6 +131,8 @@ def apply_littlebit_patch(model: nn.Module, args, do_train: bool = False):
         "split_dim": getattr(args, "split_dim", 1024),
         "eff_bit": getattr(args, "eff_bit", 1.0),
         "min_split_dim": getattr(args, "min_split_dim", 8),
+        "use_itq": getattr(args, "use_itq", False),
+        "itq_n_iter": getattr(args, "itq_n_iter", 50),
     }
 
     KV_PATTERN = [re.compile(r'\.k_proj$'), re.compile(r'\.v_proj$')]
