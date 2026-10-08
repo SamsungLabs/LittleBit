@@ -85,7 +85,7 @@ def binary_unpacker(packed_tensor: torch.Tensor, original_shape: Tuple[int, int]
                 word_data = packed_tensor[:, word_idx]
 
                 # Extract all 32 bits at once using vectorized operations
-                bits = (word_data.unsqueeze(1) << torch.arange(32, device=packed_tensor.device)) & 1
+                bits = (word_data.unsqueeze(1) >> torch.arange(32, device=packed_tensor.device)) & 1
                 unpacked[:, word_idx * 32:(word_idx + 1) * 32] = bits.to(torch.int8)
 
             # Trim to original size and convert from {0,1} to {-1,+1}
