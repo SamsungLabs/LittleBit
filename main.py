@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 
 import deepspeed
-import GPUtil
 import torch
 import torch.nn as nn
 from datasets import load_from_disk
@@ -25,11 +24,12 @@ logger = setup_logger(__name__)
 
 
 def get_device_config():
-    gpus = GPUtil.getGPUs()
-    if not gpus:
+    num_gpus = torch.cuda.device_count()
+    if num_gpus == 0:
         return None, None
 
-    device_map = "auto"
+    # "auto" is not a valid argument for model.to(), so default to a single device.
+    device_map = "cuda"
     local_rank_str = os.environ.get('LOCAL_RANK')
     if local_rank_str is not None:
         try:
@@ -38,7 +38,7 @@ def get_device_config():
         except ValueError:
             pass
 
-    return len(gpus), device_map
+    return num_gpus, device_map
 
 
 def str2bool(value):
