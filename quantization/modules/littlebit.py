@@ -393,7 +393,7 @@ class LittleBitLinear(nn.Module):
 
     @property
     def split_dim_used(self):
-        return int(self._split_dim.item())
+        return int(self._split_dim_final.item())
 
     @property
     def total_bit_usage(self):
