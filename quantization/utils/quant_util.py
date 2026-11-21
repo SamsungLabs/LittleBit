@@ -358,6 +358,14 @@ def load_quantized_model(model_path: str, quant_args, torch_dtype, device: str =
         for param in model.parameters():
             if param.dtype != torch_dtype:
                 param.data = param.data.to(torch_dtype)
+        # Binarize latent factors once so forward() doesn't re-sign them every call
+        for module in model.modules():
+            if isinstance(module, LittleBitLinear):
+                for name in ("U", "V", "U_R", "V_R"):
+                    param = getattr(module, name, None)
+                    if param is not None:
+                        param.data = module.quant_func(param.data)
+                module._binarized = True
 
     # Ensure head is correct dtype
     if hasattr(model, 'lm_head') and model.lm_head is not None:
