@@ -121,7 +121,10 @@ class LittleBitLinear(nn.Module):
         Uq = self.quantize(U.to(x.dtype))
         v1u2 = v1 * u2
 
-        if x.dtype == torch.float16:
+        # fp16 autocast runs the matmuls in fp16 even when x is fp32 (e.g. fp16 training with fp32 weights).
+        dev = x.device.type
+        fp16_autocast = torch.is_autocast_enabled(dev) and torch.get_autocast_dtype(dev) == torch.float16
+        if x.dtype == torch.float16 or fp16_autocast:
             return self._compute_forward_fp16(x, Vq, Uq, v2, v1u2, u1)
 
         # ((((x * v2) @ Vq^T) * (v1 * u2)) @ Uq^T) * u1
@@ -143,10 +146,10 @@ class LittleBitLinear(nn.Module):
         """
         fp16_max = torch.finfo(torch.float16).max
         a = x.float() * v2.float()
-        s1 = cls._pow2_at_least(a.abs().amax() * Vq.shape[1] / fp16_max)
+        s1 = cls._pow2_at_least(a.detach().abs().amax() * Vq.shape[1] / fp16_max)
         h = (a / s1).half() @ Vq.t()
         g = h.float() * v1u2.float()
-        s2 = cls._pow2_at_least(g.abs().amax() * Uq.shape[1] / fp16_max)
+        s2 = cls._pow2_at_least(g.detach().abs().amax() * Uq.shape[1] / fp16_max)
         y = ((g / s2).half() @ Uq.t()).float() * (u1.float() * (s1 * s2))
         return y.to(x.dtype)
 
