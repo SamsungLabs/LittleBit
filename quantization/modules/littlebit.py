@@ -121,8 +121,37 @@ class LittleBitLinear(nn.Module):
         Uq = self.quantize(U.to(x.dtype))
         v1u2 = v1 * u2
 
+        # fp16 autocast runs the matmuls in fp16 even when x is fp32 (e.g. fp16 training with fp32 weights).
+        dev = x.device.type
+        fp16_autocast = torch.is_autocast_enabled(dev) and torch.get_autocast_dtype(dev) == torch.float16
+        if x.dtype == torch.float16 or fp16_autocast:
+            return self._compute_forward_fp16(x, Vq, Uq, v2, v1u2, u1)
+
         # ((((x * v2) @ Vq^T) * (v1 * u2)) @ Uq^T) * u1
         return ((((x * v2) @ Vq.t()) * v1u2) @ Uq.t()) * u1
+
+    @staticmethod
+    def _pow2_at_least(t: torch.Tensor) -> torch.Tensor:
+        """Smallest power of two >= max(t, 1). Dividing by it is exact in floating point."""
+        return torch.exp2(torch.ceil(torch.log2(t.clamp(min=1.0))))
+
+    @classmethod
+    def _compute_forward_fp16(cls, x, Vq, Uq, v2, v1u2, u1):
+        """fp16 forward that cannot overflow inside the binary matmuls.
+
+        Each binary matmul sums `in_features` terms of +-input before the scales
+        shrink the result, so the running sum can pass fp16's 65504 even when the
+        layer output fits. Scale each matmul input down by a power of two (exact)
+        and scale the output back up afterwards.
+        """
+        fp16_max = torch.finfo(torch.float16).max
+        a = x.float() * v2.float()
+        s1 = cls._pow2_at_least(a.detach().abs().amax() * Vq.shape[1] / fp16_max)
+        h = (a / s1).half() @ Vq.t()
+        g = h.float() * v1u2.float()
+        s2 = cls._pow2_at_least(g.detach().abs().amax() * Uq.shape[1] / fp16_max)
+        y = ((g / s2).half() @ Uq.t()).float() * (u1.float() * (s1 * s2))
+        return y.to(x.dtype)
 
     def quantize(self, x):
         # If weights are already binarized, return them directly

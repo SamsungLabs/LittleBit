@@ -9,5 +9,4 @@ bitsandbytes
 sentencepiece
 tqdm
 pytorch-optimizer>=3.5.0
-GPUtil>=1.4.0
 mpi4py
