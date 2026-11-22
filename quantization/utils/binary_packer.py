@@ -77,20 +77,11 @@ def binary_unpacker(packed_tensor: torch.Tensor, original_shape: Tuple[int, int]
         n_rows, n_cols = original_shape
         words_per_row = (n_cols + 31) // 32
         if packed_tensor.shape == (n_rows, words_per_row):
-            # Create unpacked tensor using int8 for memory efficiency
-            unpacked = torch.zeros(n_rows, words_per_row * 32, dtype=torch.int8, device=packed_tensor.device)
-
-            # Unpack bits from 32-bit words using lsb_first method
-            for word_idx in range(words_per_row):
-                word_data = packed_tensor[:, word_idx]
-
-                # Extract all 32 bits at once using vectorized operations
-                bits = (word_data.unsqueeze(1) >> torch.arange(32, device=packed_tensor.device)) & 1
-                unpacked[:, word_idx * 32:(word_idx + 1) * 32] = bits.to(torch.int8)
-
-            # Trim to original size and convert from {0,1} to {-1,+1}
-            unpacked = unpacked[:, :n_cols]
-            return (1 - 2 * unpacked).to(torch.int8)  # Keep in int8 for memory efficiency
+            # Extract all words' bits in one shot (lsb_first), then trim padding
+            shifts = torch.arange(32, dtype=torch.int32, device=packed_tensor.device)
+            unpacked = ((packed_tensor.unsqueeze(-1) >> shifts) & 1).to(torch.int8)
+            unpacked = unpacked.reshape(n_rows, words_per_row * 32)[:, :n_cols]
+            return (1 - 2 * unpacked).contiguous()  # int8 in {-1,+1}
 
     # Raise error for unsupported cases
     raise ValueError(f"Unsupported packed tensor format. Expected 2D tensor with shape "
